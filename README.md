@@ -36,4 +36,4 @@ Allows the input of incomplete strings and will return all genes within the data
 Large table by default contains all protein affecting variants and is updated with filters. Hitting the download button downloads all data that match filters. It is currently not possible to download data without first selecting a gene of interest.
 
 # Summary Metrics
-Summary metrics are generated after a gene name is input into the set. Counts of occurences (sum of ACs) are summarised for different impact and AF variants. If searched gene matches several genes then all genes will be summarised.
+Summary metrics are generated after a gene name is input into the set. Counts of occurences (sum of ACs) are summarised for different impact and AF variants for each ExAC population. If searched gene matches several genes then all genes will be summarised unless otherwise specified with the 'Match gene name exactly' button.
