@@ -1,0 +1,192 @@
+---
+title: "Filter variants on consequence and rarity"
+author: "EF"
+date: "05 Jun 2017"
+output: html_document
+---
+# start_section
+  
+```{r start_section}
+
+# Time stamp
+Sys.time()
+
+# Clean up
+rm(list=ls())
+graphics.off()
+
+# Set root working folder
+library(knitr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(reshape)
+
+opts_knit$set(root.dir = "/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/")
+setwd("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/")
+
+```
+
+#Load data
+```{r load image}
+
+#vv <- read.table("ExAC_nonTCGA.r0.3.1.sites.vep.filt.split.vcf_v2.txt", sep="\t", header=TRUE)
+#load("ExAC_nonTCGA.r0.3.1.sites.RData")
+
+#Initial filter to cut down size of file
+#vv.csq <- vv[grepl("HIGH", vv$CSQ) | grepl("MODERATE", vv$CSQ),]
+#vv.rare <- vv.csq[vv.csq$AF <= 0.05,]
+
+#clean up and save temp image
+#rm(vv, vv.csq)
+#save.image("ExAC_nonTCGA.r0.3.1.sites_filt1.RData")
+
+#Load file that has been exported and separated
+exac <- read.table("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/ExAC_nonTCGA.r0.3.1.sites.vep.filt.split.vcf_v2_separated.txt", sep="\t", skip=1, stringsAsFactors = FALSE)
+
+```
+
+#Consequence headers
+```{r csq}
+
+csq.head <- c("CHROM",
+"POS",
+"REF",
+"ALT",
+"QUAL",
+"FILTER",
+"AC",
+"AF",
+"AN",
+"Allele",
+"Consequence",
+"IMPACT",
+"SYMBOL",
+"Gene",
+"Feature_type",
+"Feature",
+"BIOTYPE",
+"EXON",
+"INTRON",
+"HGVSc",
+"HGVSp",
+"cDNA_position",
+"CDS_position",
+"Protein_position",
+"Amino_acids",
+"Codons",
+"Existing_variation",
+"ALLELE_NUM",
+"DISTANCE",
+"STRAND",
+"VARIANT_CLASS",
+"MINIMISED",
+"SYMBOL_SOURCE",
+"HGNC_ID",
+"CANONICAL",
+"TSL",
+"CCDS",
+"ENSP",
+"SWISSPROT",
+"TREMBL",
+"UNIPARC",
+"SIFT",
+"PolyPhen",
+"DOMAINS",
+"HGVS_OFFSET",
+"GMAF",
+"AFR_MAF",
+"AMR_MAF",
+"ASN_MAF",
+"EAS_MAF",
+"EUR_MAF",
+"SAS_MAF",
+"AA_MAF",
+"EA_MAF",
+"CLIN_SIG",
+"SOMATIC",
+"PHENO",
+"PUBMED",
+"MOTIF_NAME",
+"MOTIF_POS",
+"HIGH_INF_POS",
+"MOTIF_SCORE_CHANGE",
+"LoF_info",
+"LoF_flags",
+"LoF_filter",
+"LoF",
+"context",
+"ancestral")
+
+```
+
+#Filter vv on consequence
+```{r vv filter consequence}
+
+colnames(exac) <- csq.head
+
+#Number of variants before filtering on consequence
+nrow(exac)
+
+#Filter on consequence
+high <- exac[exac$IMPACT == "HIGH",]
+miss <- exac[exac$IMPACT == "MODERATE",]
+del <- miss[(grepl("deleterious", miss$SIFT) & grepl("damaging", miss$PolyPhen)) |
+              (is.na(miss$SIFT) & grepl("damaging", miss$PolyPhen)) |
+              (grepl("deleterious", miss$SIFT) & is.na(miss$PolyPhen)) |
+              grepl("inframe", miss$Consequence),]
+high_del <- rbind(high, del)
+
+
+#Number of variants after filtering on consequence
+nrow(high_del)
+
+#Clean up
+rm(exac, miss, high, del, csq.head)
+```
+
+
+#Save data
+```{r save}
+
+save.image("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/ExAC_nonTCGA_csqfiltered_short_PAV_possdam.Rdata")
+
+```
+
+#Merge ACs onto filtered ExAC data
+```{r add}
+load("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/ExAC_nonTCGA_csqfiltered_short_PAV_possdam.Rdata")
+
+#load ac info
+exac.ac <- read.table("ExAC_nonTCGA.r0.3.1.sites.vep.vcf_multiall_v4.txt", sep="\t", header=TRUE, stringsAsFactors = FALSE)
+
+short.exac.ac <- subset(exac.ac, select=c("CHROM", "POS", "REF", "ALT", "AC_FEMALE", "AC_MALE", "AC_AFR", "AC_AMR", "AC_EAS", "AC_FIN", "AC_NFE", "AC_SAS", "AC_OTH", "AN_FEMALE", "AN_MALE", "AN_AFR", "AN_AMR", "AN_EAS", "AN_FIN", "AN_NFE", "AN_SAS", "AN_OTH"))
+
+short.exac.ac[5:22] <- lapply(short.exac.ac[5:22], function(x) as.numeric(x))
+
+#Shorten vv file from old exac
+vv <- high_del[order(high_del$CHROM, high_del$POS),]
+
+row.names(vv) <- NULL
+
+vv.short <- subset(high_del, select=c("CHROM", "POS", "REF", "ALT", "AC", "AF", "AN", "Consequence", "IMPACT", "SYMBOL", "cDNA_position", "CDS_position", "Protein_position", "Amino_acids", "Existing_variation", "HGVSc", "SIFT", "PolyPhen", "CLIN_SIG"))
+
+#Merge
+allexac <- merge(vv.short, short.exac.ac, by=c("CHROM", "POS", "REF", "ALT"), all.x = TRUE, all.y=FALSE)
+
+rm(exac.ac, vv, short.exac.ac, vv.short, high_del)
+
+#Add AFs
+vv <- allexac %>% mutate(AF_FEMALE=AC_FEMALE/AN_FEMALE, AF_MALE=AC_MALE/AN_MALE, AF_AFR=AC_AFR/AN_AFR, AF_AMR=AC_AMR/AN_AMR, AF_EAS=AC_EAS/AN_EAS, AF_FIN=AC_FIN/AN_FIN, AF_NFE=AC_NFE/AN_NFE, AF_SAS=AC_SAS/AN_SAS, AF_OTH=AC_OTH/AN_OTH)
+
+
+rm(allexac)
+
+```
+
+#save new image
+```{r save2}
+save.image("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/Exac/ExAC_nonTCGA_csqfiltered_shiny_PAV_possdam_v4_AFs_20180316.Rdata")
+save.image("/rds/project/erf33/rds-erf33-medgen/users/eleanor/2015-16/R_scripts/exac/ExAC_nonTCGA_tool/ExAC_nonTCGA_explore_v6/ExAC_nonTCGA_csqfiltered_shiny_PAV_possdam_v4_AFs_20180316.Rdata")
+```
+

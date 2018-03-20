@@ -1,0 +1,10 @@
+name: exac_nontcga_explore_v6
+title:
+username:
+account: medgen
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 300080
+bundleId: 1272274
+url: https://medgen.shinyapps.io/exac_nontcga_explore_v6/
+when: 1521216512.95159
